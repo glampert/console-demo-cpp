@@ -1,4 +1,5 @@
 #include "Screen.h"
+#include <cassert>
 #include <sstream>
 #include <iostream>
 using namespace console;
@@ -46,37 +47,152 @@ int main()
 {
 	Screen screen{ "Console Tic-Tac-Toe", 64, 32 };
 
-	bool userMoveIsValid = false;
-	int row = -1, column = -1;
+	bool playerMoveIsValid = false;
+	int playerMoveRow = -1, playerMoveColumn = -1;
+
+	const char playerCharacter = 'X';
+	const char aiCharacter = 'O';
+
+	// 0=player, 1=AI
+	bool winner[2] = { false, false };
+
+	// Blank space = empty
+	char boardValues[3][3] = {
+		{ ' ', ' ', ' ' },
+		{ ' ', ' ', ' ' },
+		{ ' ', ' ', ' ' },
+	};
+
+	Colour boardColours[3][3] = {};
 
 	for (;;)
 	{
-		if (userMoveIsValid)
+		if (playerMoveIsValid)
 		{
 			std::cout << "AI makes a move...\n";
 			console::Wait(1500);
 
-			// TODO: Implement the computer AI and check for win/lose/draw conditions.
-			// - Update the board accordingly.
+			// Set player move
+			boardValues[playerMoveRow][playerMoveColumn]  = playerCharacter;
+			boardColours[playerMoveRow][playerMoveColumn] = Colour::BrightRed;
+
+			// Very simple "random" AI: just selects randomly any empty cell to make its move
+			bool aiMadeValidMove = false;
+			while (!aiMadeValidMove)
+			{
+				int aiMoveRow    = std::rand() % 3;
+				int aiMoveColumn = std::rand() % 3;
+
+				assert(aiMoveRow    <= 2);
+				assert(aiMoveColumn <= 2);
+
+				if (boardValues[aiMoveRow][aiMoveColumn] == ' ')
+				{
+					boardValues[aiMoveRow][aiMoveColumn]  = aiCharacter;
+					boardColours[aiMoveRow][aiMoveColumn] = Colour::BrightBlue;
+					aiMadeValidMove = true;
+				}
+			}
+
+			// 0=player, 1=AI
+			const char charsToCheck[2] = { playerCharacter, aiCharacter };
+
+			// Check if there is a winner
+			for (int j = 0; j < 2; j++)
+			{
+				for (int i = 0; i < 3; i++)
+				{
+					// Vertical lines
+					if ((boardValues[i][0] == charsToCheck[j]) && (boardValues[i][1] == charsToCheck[j]) && (boardValues[i][2] == charsToCheck[j]))
+					{
+						winner[j] = true;
+					}
+					// Horizontal lines
+					if ((boardValues[0][i] == charsToCheck[j]) && (boardValues[1][i] == charsToCheck[j]) && (boardValues[2][i] == charsToCheck[j]))
+					{
+						winner[j] = true;
+					}
+				}
+
+				// Diagonals
+				if ((boardValues[0][0] == charsToCheck[j]) && (boardValues[1][1] == charsToCheck[j]) && (boardValues[2][2] == charsToCheck[j]))
+				{
+					winner[j] = true;
+				}
+				if ((boardValues[0][2] == charsToCheck[j]) && (boardValues[1][1] == charsToCheck[j]) && (boardValues[2][0] == charsToCheck[j]))
+				{
+					winner[j] = true;
+				}
+
+				// We can early out if player or AI won
+				if (winner[j])
+				{
+					break;
+				}
+			}
 		}
 
 		screen.Clear();
 
-		char boardValues[3][3] = {
-			{ 'X', 'O', 'O' },
-			{ 'O', 'X', 'O' },
-			{ 'O', 'O', 'X' },
-		};
-
-		Colour boardColours[3][3] = {
-			{ Colour::BrightRed, Colour::White,     Colour::White     },
-			{ Colour::White,     Colour::BrightRed, Colour::White     },
-			{ Colour::White,     Colour::White,     Colour::BrightRed },
-		};
-
 		// Draw and display the board
 		DrawTicTacToeBoard(screen, 1, 7, boardValues, boardColours);
 		screen.Present();
+
+		bool restartGame = false;
+		if (winner[0]) // player won
+		{
+			std::cout << "CONGRATULATION, YOU WON!\n";
+			console::Wait(1500);
+			restartGame = true;
+		}
+		else if (winner[1]) // ai won
+		{
+			std::cout << "AI WINS!\n";
+			console::Wait(1500);
+			restartGame = true;
+		}
+		else // check for tie
+		{
+			bool hasEmptyCell = false;
+			for (int x = 0; x < 3; x++)
+			{
+				for (int y = 0; y < 3; y++)
+				{
+					if (boardValues[x][y] == ' ')
+					{
+						hasEmptyCell = true;
+						break;
+					}
+				}
+			}
+
+			if (!hasEmptyCell)
+			{
+				std::cout << "TIE GAME!\n";
+				console::Wait(1500);
+				restartGame = true;
+			}
+		}
+
+		if (restartGame)
+		{
+			// Restart the game once the player or AI have won (reset all states)
+			playerMoveIsValid = false;
+			playerMoveRow = -1;
+			playerMoveColumn = -1;
+
+			winner[0] = false;
+			winner[1] = false;
+
+			for (int x = 0; x < 3; x++)
+			{
+				for (int y = 0; y < 3; y++)
+				{
+					boardValues[x][y]  = ' ';
+					boardColours[x][y] = Colour::White;
+				}
+			}
+		}
 
 		// Header text
 		std::cout << "Enter row and column for your move\n"
@@ -108,24 +224,24 @@ int main()
 			catch (...) {}
 		}
 
-		row    = inputRowAndColumn[0];
-		column = inputRowAndColumn[1];
+		playerMoveRow    = inputRowAndColumn[0];
+		playerMoveColumn = inputRowAndColumn[1];
 
 		// Validate the inputs
-		if (row < 0 || row > 2)
+		if (playerMoveRow < 0 || playerMoveRow > 2)
 		{
 			std::cout << "Invalid row! Try again.\n";
-			userMoveIsValid = false;
+			playerMoveIsValid = false;
 		}
-		else if (column < 0 || column > 2)
+		else if (playerMoveColumn < 0 || playerMoveColumn > 2)
 		{
 			std::cout << "Invalid column! Try again.\n";
-			userMoveIsValid = false;
+			playerMoveIsValid = false;
 		}
 		else
 		{
-			std::cout << "Your move is: " << row << "," << column << "\n";
-			userMoveIsValid = true;
+			std::cout << "Your move is: " << playerMoveRow << "," << playerMoveColumn << "\n";
+			playerMoveIsValid = true;
 		}
 
 		// Sleep for a few milliseconds
